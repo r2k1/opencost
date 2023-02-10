@@ -7,13 +7,14 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/apimachinery/pkg/labels"
+
 	"github.com/opencost/opencost/pkg/cloud"
 	"github.com/opencost/opencost/pkg/env"
 	"github.com/opencost/opencost/pkg/kubecost"
 	"github.com/opencost/opencost/pkg/log"
 	"github.com/opencost/opencost/pkg/prom"
 	"github.com/opencost/opencost/pkg/util/timeutil"
-	"k8s.io/apimachinery/pkg/labels"
 )
 
 // This is a bit of a hack to work around garbage data from cadvisor
@@ -1333,6 +1334,52 @@ func applyLoadBalancersToPods(window kubecost.Window, podMap map[podKey]*pod, lb
 
 /* Node Helpers */
 
+func applyNodeCapacityCPUCores(nodeMap map[nodeKey]*nodePricing, resNodeCapacityCPUCores []*prom.QueryResult) {
+	for _, res := range resNodeCapacityCPUCores {
+		node, err := res.GetString("node")
+		if err != nil {
+			log.Warnf("CostModel.ComputeAllocation: Node CPU capacity query result missing field: %s", err)
+			continue
+		}
+
+		cluster, err := res.GetString(env.GetPromClusterLabel())
+		if err != nil {
+			cluster = env.GetClusterID()
+		}
+
+		key := newNodeKey(cluster, node)
+
+		if _, ok := nodeMap[key]; !ok {
+			nodeMap[key] = &nodePricing{}
+		}
+
+		nodeMap[key].CapacityCPUCores = res.Values[0].Value
+	}
+}
+
+func applyNodeCapacityRAMBytes(nodeMap map[nodeKey]*nodePricing, resNodeCapacityMemoryBytes []*prom.QueryResult) {
+	for _, res := range resNodeCapacityMemoryBytes {
+		cluster, err := res.GetString(env.GetPromClusterLabel())
+		if err != nil {
+			cluster = env.GetClusterID()
+		}
+		node, err := res.GetString("node")
+		if err != nil {
+			log.Warnf("CostModel.ComputeAllocation: Node CPU capacity query result missing field: %s", err)
+			continue
+		}
+
+		key := newNodeKey(cluster, node)
+
+		if _, ok := nodeMap[key]; !ok {
+			log.Warnf("CostModel.ComputeAllocation: Node spot  query result for missing node: %s", key)
+			continue
+		}
+
+		nodeMap[key].CapacityRAMBytes = res.Values[0].Value
+	}
+}
+
 func applyNodeCostPerCPUHr(nodeMap map[nodeKey]*nodePricing, resNodeCostPerCPUHr []*prom.QueryResult) {
 	for _, res := range resNodeCostPerCPUHr {
 		cluster, err := res.GetString(env.GetPromClusterLabel())
@@ -1346,27 +1393,11 @@ func applyNodeCostPerCPUHr(nodeMap map[nodeKey]*nodePricing, resNodeCostPerCPUHr
 			continue
 		}
 
-		instanceType, err := res.GetString("instance_type")
-		if err != nil {
-			log.Warnf("CostModel.ComputeAllocation: Node CPU cost query result missing field: %s", err)
-			continue
-		}
-
-		providerID, err := res.GetString("provider_id")
-		if err != nil {
-			log.Warnf("CostModel.ComputeAllocation: Node CPU cost query result missing field: %s", err)
-			continue
-		}
-
 		key := newNodeKey(cluster, node)
 		if _, ok := nodeMap[key]; !ok {
-			nodeMap[key] = &nodePricing{
-				Name:       node,
-				NodeType:   instanceType,
-				ProviderID: cloud.ParseID(providerID),
-			}
+			log.Warnf("CostModel.ComputeAllocation: Node spot  query result for missing node: %s", key)
+			continue
 		}
-
 		nodeMap[key].CostPerCPUHr = res.Values[0].Value
 	}
 }
@@ -1501,7 +1532,7 @@ func applyNodeDiscount(nodeMap map[nodeKey]*nodePricing, cm *CostModel) {
 	}
 }
 
-func (cm *CostModel) applyNodesToPod(podMap map[podKey]*pod, nodeMap map[nodeKey]*nodePricing) {
+func (cm *CostModel) applyNodesToPod(podMap map[podKey]*pod, nodeMap map[nodeKey]*nodePricing, duration time.Duration) {
 	for _, pod := range podMap {
 		for _, alloc := range pod.Allocations {
 			cluster := alloc.Properties.Cluster
@@ -1513,6 +1544,14 @@ func (cm *CostModel) applyNodesToPod(podMap map[podKey]*pod, nodeMap map[nodeKey
 			alloc.CPUCost = alloc.CPUCoreHours * node.CostPerCPUHr
 			alloc.RAMCost = (alloc.RAMByteHours / 1024 / 1024 / 1024) * node.CostPerRAMGiBHr
 			alloc.GPUCost = alloc.GPUHours * node.CostPerGPUHr
+			nodeHours := alloc.CPUCoreHours/node.CapacityCPUCores/2 + alloc.RAMByteHours/node.CapacityRAMBytes/2
+			if alloc.NodeAllocations == nil {
+				alloc.NodeAllocations = make(map[string]*kubecost.NodeAllocation, 1)
+			}
+			alloc.NodeAllocations[node.Name] = &kubecost.NodeAllocation{
+				Hours:    nodeHours,
+				Fraction: nodeHours / duration.Hours(),
+			}
 		}
 	}
 }
@@ -1815,6 +1854,11 @@ func buildPodPVCMap(podPVCMap map[podKey][]*pvc, pvMap map[pvKey]*pv, pvcMap map
 		}
 	}
 }
+
+func applyNodesToPods(window kubecost.Window, podMap map[podKey]*pod) {
+
+}
+
 func applyPVCsToPods(window kubecost.Window, podMap map[podKey]*pod, podPVCMap map[podKey][]*pvc, pvcMap map[pvcKey]*pvc) {
 	// Because PVCs can be shared among pods, the respective pv cost
 	// needs to be evenly distributed to those pods based on time

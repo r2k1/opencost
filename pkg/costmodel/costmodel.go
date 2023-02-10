@@ -8,6 +8,12 @@ import (
 	"strings"
 	"time"
 
+	prometheus "github.com/prometheus/client_golang/api"
+	prometheusClient "github.com/prometheus/client_golang/api"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+
 	costAnalyzerCloud "github.com/opencost/opencost/pkg/cloud"
 	"github.com/opencost/opencost/pkg/clustercache"
 	"github.com/opencost/opencost/pkg/costmodel/clusters"
@@ -16,11 +22,6 @@ import (
 	"github.com/opencost/opencost/pkg/log"
 	"github.com/opencost/opencost/pkg/prom"
 	"github.com/opencost/opencost/pkg/util"
-	prometheus "github.com/prometheus/client_golang/api"
-	prometheusClient "github.com/prometheus/client_golang/api"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 
 	"golang.org/x/sync/singleflight"
 )

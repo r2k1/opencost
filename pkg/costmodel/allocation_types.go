@@ -2,8 +2,9 @@ package costmodel
 
 import (
 	"fmt"
-	"github.com/opencost/opencost/pkg/kubecost"
 	"time"
+
+	"github.com/opencost/opencost/pkg/kubecost"
 )
 
 // pod describes a running pod's start and end time within a Window and
@@ -214,13 +215,15 @@ type lbCost struct {
 // NodePricing describes the resource costs associated with a given node, as
 // well as the source of the information (e.g. prometheus, custom)
 type nodePricing struct {
-	Name            string
-	NodeType        string
-	ProviderID      string
-	Preemptible     bool
-	CostPerCPUHr    float64
-	CostPerRAMGiBHr float64
-	CostPerGPUHr    float64
-	Discount        float64
-	Source          string
+	Name             string
+	NodeType         string
+	ProviderID       string
+	Preemptible      bool
+	CostPerCPUHr     float64
+	CostPerRAMGiBHr  float64
+	CostPerGPUHr     float64
+	CapacityCPUCores float64
+	CapacityRAMBytes float64
+	Discount         float64
+	Source           string
 }

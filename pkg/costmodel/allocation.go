@@ -28,6 +28,8 @@ const (
 	queryFmtNodeCostPerCPUHr         = `avg(avg_over_time(node_cpu_hourly_cost[%s])) by (node, %s, instance_type, provider_id)`
 	queryFmtNodeCostPerRAMGiBHr      = `avg(avg_over_time(node_ram_hourly_cost[%s])) by (node, %s, instance_type, provider_id)`
 	queryFmtNodeCostPerGPUHr         = `avg(avg_over_time(node_gpu_hourly_cost[%s])) by (node, %s, instance_type, provider_id)`
+	queryFmtNodeCapacityCPUCores     = `avg(last_over_time(kube_node_status_capacity{resource="cpu"}[%s])) by (node)`
+	queryFmtNodeCapacityRAMBytes     = `avg(last_over_time(kube_node_status_capacity{resource="memory"}[%s])) by (node)`
 	queryFmtNodeIsSpot               = `avg_over_time(kubecost_node_is_spot[%s])`
 	queryFmtPVCInfo                  = `avg(kube_persistentvolumeclaim_info{volumename != ""}) by (persistentvolumeclaim, storageclass, volumename, namespace, %s)[%s:%s]`
 	queryFmtPodPVCAllocation         = `avg(avg_over_time(pod_pvc_allocation[%s])) by (persistentvolume, persistentvolumeclaim, pod, namespace, %s)`
@@ -342,6 +344,12 @@ func (cm *CostModel) computeAllocation(start, end time.Time, resolution time.Dur
 	queryNodeCostPerCPUHr := fmt.Sprintf(queryFmtNodeCostPerCPUHr, durStr, env.GetPromClusterLabel())
 	resChNodeCostPerCPUHr := ctx.QueryAtTime(queryNodeCostPerCPUHr, end)
 
+	queryNodeCapacityCPUCores := fmt.Sprintf(queryFmtNodeCapacityCPUCores, durStr)
+	resChNodeCapacityCPUCores := ctx.QueryAtTime(queryNodeCapacityCPUCores, end)
+
+	queryNodeCapacityRAMBytes := fmt.Sprintf(queryFmtNodeCapacityRAMBytes, durStr)
+	resChNodeCapacityRAMBytes := ctx.QueryAtTime(queryNodeCapacityRAMBytes, end)
+
 	queryNodeCostPerRAMGiBHr := fmt.Sprintf(queryFmtNodeCostPerRAMGiBHr, durStr, env.GetPromClusterLabel())
 	resChNodeCostPerRAMGiBHr := ctx.QueryAtTime(queryNodeCostPerRAMGiBHr, end)
 
@@ -447,6 +455,8 @@ func (cm *CostModel) computeAllocation(start, end time.Time, resolution time.Dur
 	resNodeCostPerRAMGiBHr, _ := resChNodeCostPerRAMGiBHr.Await()
 	resNodeCostPerGPUHr, _ := resChNodeCostPerGPUHr.Await()
 	resNodeIsSpot, _ := resChNodeIsSpot.Await()
+	resNodeCapacityCPUCores, _ := resChNodeCapacityCPUCores.Await()
+	resNodeCapacityRAMBytes, _ := resChNodeCapacityRAMBytes.Await()
 
 	resPVActiveMins, _ := resChPVActiveMins.Await()
 	resPVBytes, _ := resChPVBytes.Await()
@@ -577,8 +587,10 @@ func (cm *CostModel) computeAllocation(start, end time.Time, resolution time.Dur
 	applyNodeCostPerRAMGiBHr(nodeMap, resNodeCostPerRAMGiBHr)
 	applyNodeCostPerGPUHr(nodeMap, resNodeCostPerGPUHr)
 	applyNodeSpot(nodeMap, resNodeIsSpot)
+	applyNodeCapacityCPUCores(nodeMap, resNodeCapacityCPUCores)
+	applyNodeCapacityRAMBytes(nodeMap, resNodeCapacityRAMBytes)
 	applyNodeDiscount(nodeMap, cm)
-	cm.applyNodesToPod(podMap, nodeMap)
+	cm.applyNodesToPod(podMap, nodeMap, end.Sub(start))
 
 	// (3) Build out AllocationSet from Pod map
 	for _, pod := range podMap {

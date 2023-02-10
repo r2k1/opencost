@@ -11,6 +11,7 @@ func (a *Allocation) MarshalJSON() ([]byte, error) {
 	buffer := bytes.NewBufferString("{")
 	jsonEncodeString(buffer, "name", a.Name, ",")
 	jsonEncode(buffer, "properties", a.Properties, ",")
+	jsonEncode(buffer, "nodes", a.NodeAllocations, ",")
 	jsonEncode(buffer, "window", a.Window, ",")
 	jsonEncodeString(buffer, "start", a.Start.Format(time.RFC3339), ",")
 	jsonEncodeString(buffer, "end", a.End.Format(time.RFC3339), ",")

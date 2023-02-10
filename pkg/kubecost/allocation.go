@@ -67,6 +67,7 @@ type Allocation struct {
 	NetworkCrossRegionCost     float64               `json:"networkCrossRegionCost"` // @bingen:field[version=16]
 	NetworkInternetCost        float64               `json:"networkInternetCost"`    // @bingen:field[version=16]
 	NetworkCostAdjustment      float64               `json:"networkCostAdjustment"`
+	NodeAllocations            NodeAllocations       `json:"nodeAllocations"`
 	LoadBalancerCost           float64               `json:"loadBalancerCost"`
 	LoadBalancerCostAdjustment float64               `json:"loadBalancerCostAdjustment"`
 	PVs                        PVAllocations         `json:"pvs"`
@@ -81,6 +82,13 @@ type Allocation struct {
 	// RawAllocationOnly is a pointer so if it is not present it will be
 	// marshalled as null rather than as an object with Go default values.
 	RawAllocationOnly *RawAllocationOnlyData `json:"rawAllocationOnly"`
+}
+
+type NodeAllocations map[string]*NodeAllocation
+
+type NodeAllocation struct {
+	Hours    float64 `json:"hours"`
+	Fraction float64 `json:"fraction"`
 }
 
 // RawAllocationOnlyData is information that only belong in "raw" Allocations,
