@@ -35,6 +35,7 @@ func (a *Allocation) MarshalJSON() ([]byte, error) {
 	jsonEncodeFloat64(buffer, "networkCostAdjustment", a.NetworkCostAdjustment, ",")
 	jsonEncodeFloat64(buffer, "loadBalancerCost", a.LoadBalancerCost, ",")
 	jsonEncodeFloat64(buffer, "loadBalancerCostAdjustment", a.LoadBalancerCostAdjustment, ",")
+	jsonEncodeFloat64(buffer, "nodeFraction", a.NodeFraction, ",")
 	jsonEncodeFloat64(buffer, "pvBytes", a.PVBytes(), ",")
 	jsonEncodeFloat64(buffer, "pvByteHours", a.PVByteHours(), ",")
 	jsonEncodeFloat64(buffer, "pvCost", a.PVCost(), ",")

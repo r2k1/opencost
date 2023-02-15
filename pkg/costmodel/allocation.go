@@ -56,6 +56,9 @@ const (
 	queryFmtReplicaSetsWithoutOwners = `avg(avg_over_time(kube_replicaset_owner{owner_kind="<none>", owner_name="<none>"}[%s])) by (replicaset, namespace, %s)`
 	queryFmtLBCostPerHr              = `avg(avg_over_time(kubecost_load_balancer_cost[%s])) by (namespace, service_name, %s)`
 	queryFmtLBActiveMins             = `count(kubecost_load_balancer_cost) by (namespace, service_name, %s)[%s:%s]`
+
+	queryFmtNodeCapacityCPUCores = `avg(last_over_time(kube_node_status_capacity{resource="cpu"}[%s])) by (node)`
+	queryFmtNodeCapacityRAMBytes = `avg(last_over_time(kube_node_status_capacity{resource="memory"}[%s])) by (node)`
 )
 
 // Constants for Network Cost Subtype
@@ -342,6 +345,12 @@ func (cm *CostModel) computeAllocation(start, end time.Time, resolution time.Dur
 	queryNodeCostPerCPUHr := fmt.Sprintf(queryFmtNodeCostPerCPUHr, durStr, env.GetPromClusterLabel())
 	resChNodeCostPerCPUHr := ctx.QueryAtTime(queryNodeCostPerCPUHr, end)
 
+	queryNodeCapacityCPUCores := fmt.Sprintf(queryFmtNodeCapacityCPUCores, durStr)
+	resChNodeCapacityCPUCores := ctx.QueryAtTime(queryNodeCapacityCPUCores, end)
+
+	queryNodeCapacityRAMBytes := fmt.Sprintf(queryFmtNodeCapacityRAMBytes, durStr)
+	resChNodeCapacityRAMBytes := ctx.QueryAtTime(queryNodeCapacityRAMBytes, end)
+
 	queryNodeCostPerRAMGiBHr := fmt.Sprintf(queryFmtNodeCostPerRAMGiBHr, durStr, env.GetPromClusterLabel())
 	resChNodeCostPerRAMGiBHr := ctx.QueryAtTime(queryNodeCostPerRAMGiBHr, end)
 
@@ -447,6 +456,9 @@ func (cm *CostModel) computeAllocation(start, end time.Time, resolution time.Dur
 	resNodeCostPerRAMGiBHr, _ := resChNodeCostPerRAMGiBHr.Await()
 	resNodeCostPerGPUHr, _ := resChNodeCostPerGPUHr.Await()
 	resNodeIsSpot, _ := resChNodeIsSpot.Await()
+
+	resNodeCapacityCPUCores, _ := resChNodeCapacityCPUCores.Await()
+	resNodeCapacityRAMBytes, _ := resChNodeCapacityRAMBytes.Await()
 
 	resPVActiveMins, _ := resChPVActiveMins.Await()
 	resPVBytes, _ := resChPVBytes.Await()
@@ -576,6 +588,9 @@ func (cm *CostModel) computeAllocation(start, end time.Time, resolution time.Dur
 	applyNodeCostPerCPUHr(nodeMap, resNodeCostPerCPUHr)
 	applyNodeCostPerRAMGiBHr(nodeMap, resNodeCostPerRAMGiBHr)
 	applyNodeCostPerGPUHr(nodeMap, resNodeCostPerGPUHr)
+	applyNodeCapacityCPUCores(nodeMap, resNodeCapacityCPUCores)
+	applyNodeCapacityRAMBytes(nodeMap, resNodeCapacityRAMBytes)
+
 	applyNodeSpot(nodeMap, resNodeIsSpot)
 	applyNodeDiscount(nodeMap, cm)
 	cm.applyNodesToPod(podMap, nodeMap)

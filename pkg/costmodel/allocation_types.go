@@ -2,8 +2,9 @@ package costmodel
 
 import (
 	"fmt"
-	"github.com/opencost/opencost/pkg/kubecost"
 	"time"
+
+	"github.com/opencost/opencost/pkg/kubecost"
 )
 
 // pod describes a running pod's start and end time within a Window and
@@ -223,4 +224,6 @@ type nodePricing struct {
 	CostPerGPUHr    float64
 	Discount        float64
 	Source          string
+	CPUCores        float64
+	RAMBytes        float64
 }

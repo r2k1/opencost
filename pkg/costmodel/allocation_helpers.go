@@ -7,13 +7,14 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/apimachinery/pkg/labels"
+
 	"github.com/opencost/opencost/pkg/cloud"
 	"github.com/opencost/opencost/pkg/env"
 	"github.com/opencost/opencost/pkg/kubecost"
 	"github.com/opencost/opencost/pkg/log"
 	"github.com/opencost/opencost/pkg/prom"
 	"github.com/opencost/opencost/pkg/util/timeutil"
-	"k8s.io/apimachinery/pkg/labels"
 )
 
 // This is a bit of a hack to work around garbage data from cadvisor
@@ -1371,6 +1372,50 @@ func applyNodeCostPerCPUHr(nodeMap map[nodeKey]*nodePricing, resNodeCostPerCPUHr
 	}
 }
 
+func applyNodeCapacityCPUCores(nodeMap map[nodeKey]*nodePricing, resNodeCapacityCPUCores []*prom.QueryResult) {
+	for _, res := range resNodeCapacityCPUCores {
+		cluster, err := res.GetString(env.GetPromClusterLabel())
+		if err != nil {
+			cluster = env.GetClusterID()
+		}
+
+		node, err := res.GetString("node")
+		if err != nil {
+			log.Warnf("CostModel.ComputeAllocation: Node CPU cores query result missing field: %s", err)
+			continue
+		}
+
+		key := newNodeKey(cluster, node)
+		if _, ok := nodeMap[key]; !ok {
+			log.Warnf("CostModel.ComputeAllocation: Node CPU cores query result missing node: %s", key)
+		}
+
+		nodeMap[key].CPUCores = res.Values[0].Value
+	}
+}
+
+func applyNodeCapacityRAMBytes(nodeMap map[nodeKey]*nodePricing, resNodeCapacityCPUCores []*prom.QueryResult) {
+	for _, res := range resNodeCapacityCPUCores {
+		cluster, err := res.GetString(env.GetPromClusterLabel())
+		if err != nil {
+			cluster = env.GetClusterID()
+		}
+
+		node, err := res.GetString("node")
+		if err != nil {
+			log.Warnf("CostModel.ComputeAllocation: Node RAM bytes query result missing field: %s", err)
+			continue
+		}
+
+		key := newNodeKey(cluster, node)
+		if _, ok := nodeMap[key]; !ok {
+			log.Warnf("CostModel.ComputeAllocation: Node RAM bytes query result missing node: %s", key)
+		}
+
+		nodeMap[key].RAMBytes = res.Values[0].Value
+	}
+}
+
 func applyNodeCostPerRAMGiBHr(nodeMap map[nodeKey]*nodePricing, resNodeCostPerRAMGiBHr []*prom.QueryResult) {
 	for _, res := range resNodeCostPerRAMGiBHr {
 		cluster, err := res.GetString(env.GetPromClusterLabel())
@@ -1513,6 +1558,7 @@ func (cm *CostModel) applyNodesToPod(podMap map[podKey]*pod, nodeMap map[nodeKey
 			alloc.CPUCost = alloc.CPUCoreHours * node.CostPerCPUHr
 			alloc.RAMCost = (alloc.RAMByteHours / 1024 / 1024 / 1024) * node.CostPerRAMGiBHr
 			alloc.GPUCost = alloc.GPUHours * node.CostPerGPUHr
+			alloc.NodeFraction = alloc.RAMByteHours/node.RAMBytes/2 + alloc.CPUCoreHours/node.CPUCores/2
 		}
 	}
 }

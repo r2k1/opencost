@@ -69,6 +69,7 @@ type Allocation struct {
 	NetworkCostAdjustment      float64               `json:"networkCostAdjustment"`
 	LoadBalancerCost           float64               `json:"loadBalancerCost"`
 	LoadBalancerCostAdjustment float64               `json:"loadBalancerCostAdjustment"`
+	NodeFraction               float64               `json:"nodeFraction"`
 	PVs                        PVAllocations         `json:"pvs"`
 	PVCostAdjustment           float64               `json:"pvCostAdjustment"`
 	RAMByteHours               float64               `json:"ramByteHours"`
@@ -139,6 +140,12 @@ func (r *RawAllocationOnlyData) Equal(that *RawAllocationOnlyData) bool {
 // PVAllocations is a map of Disk Asset Identifiers to the
 // usage of them by an Allocation as recorded in a PVAllocation
 type PVAllocations map[PVKey]*PVAllocation
+
+type NodeAllocations map[string]*NodeAllocation
+
+type NodeAllocation struct {
+	Fraction float64 `json:"fraction"`
+}
 
 // Clone creates a deep copy of a PVAllocations
 func (pv PVAllocations) Clone() PVAllocations {
@@ -295,6 +302,7 @@ func (a *Allocation) Clone() *Allocation {
 		NetworkCrossRegionCost:     a.NetworkCrossRegionCost,
 		NetworkInternetCost:        a.NetworkInternetCost,
 		NetworkCostAdjustment:      a.NetworkCostAdjustment,
+		NodeFraction:               a.NodeFraction,
 		LoadBalancerCost:           a.LoadBalancerCost,
 		LoadBalancerCostAdjustment: a.LoadBalancerCostAdjustment,
 		PVs:                        a.PVs.Clone(),
@@ -338,6 +346,9 @@ func (a *Allocation) Equal(that *Allocation) bool {
 		return false
 	}
 	if !util.IsApproximately(a.CPUCost, that.CPUCost) {
+		return false
+	}
+	if !util.IsApproximately(a.NodeFraction, that.NodeFraction) {
 		return false
 	}
 	if !util.IsApproximately(a.CPUCostAdjustment, that.CPUCostAdjustment) {
@@ -792,6 +803,7 @@ func (a *Allocation) add(that *Allocation) {
 	a.LoadBalancerCost += that.LoadBalancerCost
 	a.SharedCost += that.SharedCost
 	a.ExternalCost += that.ExternalCost
+	a.NodeFraction += that.NodeFraction
 
 	// Sum PVAllocations
 	a.PVs = a.PVs.Add(that.PVs)
