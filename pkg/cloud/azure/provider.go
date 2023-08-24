@@ -13,6 +13,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-11-01/compute"
 	"github.com/Azure/azure-sdk-for-go/services/preview/commerce/mgmt/2015-06-01-preview/commerce"
 	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2016-06-01/subscriptions"
@@ -881,10 +883,13 @@ func (az *Azure) DownloadPricingData() error {
 
 	// If we've got a billing account set, kick off downloading the custom pricing data.
 	if config.AzureBillingAccount != "" {
+		credentials, err := azureCredentials(config)
+		if err != nil {
+			return err
+		}
+
 		downloader := PriceSheetDownloader{
-			TenantID:       config.AzureTenantID,
-			ClientID:       config.AzureClientID,
-			ClientSecret:   config.AzureClientSecret,
+			credential:     credentials,
 			BillingAccount: config.AzureBillingAccount,
 			OfferID:        config.AzureOfferDurableID,
 			ConvertMeterInfo: func(meterInfo commerce.MeterInfo) (map[string]*AzurePricing, error) {
@@ -912,6 +917,26 @@ func (az *Azure) DownloadPricingData() error {
 	}
 
 	return nil
+}
+
+func azureCredentials(config *models.CustomPricing) (*azidentity.ChainedTokenCredential, error) {
+	defaultCredential, err := azidentity.NewDefaultAzureCredential(nil)
+	if err != nil {
+		return nil, err
+	}
+	credentials := []azcore.TokenCredential{defaultCredential}
+	secretCredential, err := azidentity.NewClientSecretCredential(config.AzureTenantID, config.AzureClientID, config.AzureClientSecret, nil)
+	if err != nil {
+		log.Warnf("Error creating secret credential: %s", err.Error())
+	} else {
+		credentials = append(credentials, secretCredential)
+	}
+
+	chainCredential, err := azidentity.NewChainedTokenCredential(credentials, nil)
+	if err != nil {
+		return nil, err
+	}
+	return chainCredential, nil
 }
 
 func convertMeterToPricings(info commerce.MeterInfo, regions map[string]string, baseCPUPrice string) (map[string]*AzurePricing, error) {

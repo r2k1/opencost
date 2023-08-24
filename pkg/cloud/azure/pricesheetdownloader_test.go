@@ -13,9 +13,6 @@ import (
 
 func TestDownloader(t *testing.T) {
 	d := PriceSheetDownloader{
-		TenantID:         "test-tenant-id",
-		ClientID:         "test-client-id",
-		ClientSecret:     "test-client-secret",
 		BillingAccount:   "test-billing-account",
 		OfferID:          "my-offer-id",
 		ConvertMeterInfo: convertMeter,
@@ -50,9 +47,6 @@ func TestDownloader(t *testing.T) {
 
 	t.Run("no matching prices", func(t *testing.T) {
 		d := PriceSheetDownloader{
-			TenantID:       "test-tenant-id",
-			ClientID:       "test-client-id",
-			ClientSecret:   "test-client-secret",
 			BillingAccount: "test-billing-account",
 			OfferID:        "my-offer-id",
 			ConvertMeterInfo: func(commerce.MeterInfo) (map[string]*AzurePricing, error) {

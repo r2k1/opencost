@@ -216,7 +216,6 @@ func (cp *CustomPricing) GetSharedOverheadCostPerMonth() float64 {
 }
 
 func SetCustomPricingField(obj *CustomPricing, name string, value string) error {
-
 	structValue := reflect.ValueOf(obj).Elem()
 	structFieldValue := structValue.FieldByName(name)
 

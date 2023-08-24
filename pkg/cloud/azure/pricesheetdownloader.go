@@ -14,19 +14,16 @@ import (
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/profiles/2020-09-01/commerce/mgmt/commerce"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
-	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
-
 	"github.com/opencost/opencost/pkg/log"
 )
 
 type PriceSheetDownloader struct {
-	TenantID         string
-	ClientID         string
-	ClientSecret     string
 	BillingAccount   string
 	OfferID          string
 	ConvertMeterInfo func(info commerce.MeterInfo) (map[string]*AzurePricing, error)
+	credential       azcore.TokenCredential
 }
 
 func (d *PriceSheetDownloader) GetPricing(ctx context.Context) (map[string]*AzurePricing, error) {
@@ -51,11 +48,7 @@ func (d *PriceSheetDownloader) GetPricing(ctx context.Context) (map[string]*Azur
 }
 
 func (d *PriceSheetDownloader) getDownloadURL(ctx context.Context) (string, error) {
-	cred, err := azidentity.NewClientSecretCredential(d.TenantID, d.ClientID, d.ClientSecret, nil)
-	if err != nil {
-		return "", fmt.Errorf("creating credential: %w", err)
-	}
-	client, err := NewPriceSheetClient(d.BillingAccount, cred, nil)
+	client, err := NewPriceSheetClient(d.BillingAccount, d.credential, nil)
 	if err != nil {
 		return "", fmt.Errorf("creating pricesheet client: %w", err)
 	}
